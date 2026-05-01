@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BEE 金库</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{background:#121212;color:#fff;font-family:Arial;padding:30px;max-width:500px;margin:0 auto}
+    .title{text-align:center;color:#ffcc00;font-size:26px;margin-bottom:25px}
+    .btn{width:100%;padding:16px;background:#ffcc00;color:#000;border:none;border-radius:12px;margin:10px 0;font-size:16px;font-weight:bold;cursor:pointer}
+    .card{background:#1e1e1e;padding:22px;border-radius:14px;margin:15px 0}
+    .card h3{color:#ffcc00;margin-bottom:10px}
+    .amount{font-size:18px;margin:12px 0}
+    .wallet{text-align:center;margin:10px 0;color:#aaa}
+  </style>
+</head>
+<body>
+
+  <div class="title">BEE 分红金库</div>
+  <button class="btn" id="connectBtn">连接钱包</button>
+  <div class="wallet" id="wallet"></div>
+
+  <div class="card">
+    <h3>待领取 LP</h3>
+    <div class="amount" id="lpAmount">--</div>
+    <button class="btn" id="claimLP">领取 LP 分红</button>
+  </div>
+
+  <div class="card">
+    <h3>待领取 BNB</h3>
+    <div class="amount" id="bnbAmount">--</div>
+    <button class="btn" id="claimBNB">领取 BNB 分红</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script>
+    const CONTRACT_ADDRESS = "0x1234567890123456789012345678901234567890";
+    const ABI = [
+      "function getPendingRewards(address user) view returns (uint256, uint256)",
+      "function claimLP()",
+      "function claimBNB()"
+    ];
+
+    let provider, signer, contract, userAddress;
+
+    document.getElementById("connectBtn").onclick = connect;
+    document.getElementById("claimLP").onclick = claimLP;
+    document.getElementById("claimBNB").onclick = claimBNB;
+
+    async function connect() {
+      try {
+        if (!window.ethereum) {
+          alert("请安装 MetaMask 钱包");
+          return;
+        }
+
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+        document.getElementById("connectBtn").innerText = "已连接";
+        document.getElementById("connectBtn").disabled = true;
+        document.getElementById("wallet").innerText = userAddress.slice(0,6)+"..."+userAddress.slice(-4);
+
+        loadRewards();
+      } catch (e) {
+        alert("连接失败：" + e.message);
+      }
+    }
+
+    async function loadRewards() {
+      if (!contract) return;
+      try {
+        let [lp, bnb] = await contract.getPendingRewards(userAddress);
+        document.getElementById("lpAmount").innerText = ethers.utils.formatEther(lp) + " LP";
+        document.getElementById("bnbAmount").innerText = ethers.utils.formatEther(bnb) + " BNB";
+      } catch (e) {
+        document.getElementById("lpAmount").innerText = "获取失败";
+        document.getElementById("bnbAmount").innerText = "获取失败";
+      }
+    }
+
+    async function claimLP() {
+      if (!contract) return alert("请先连接钱包");
+      try {
+        let tx = await contract.claimLP();
+        await tx.wait();
+        alert("✅ 领取成功");
+        loadRewards();
+      } catch (e) {
+        alert("❌ 失败：" + e.message);
+      }
+    }
+
+    async function claimBNB() {
+      if (!contract) return alert("请先连接钱包");
+      try {
+        let tx = await contract.claimBNB();
+        await tx.wait();
+        alert("✅ 领取成功");
+        loadRewards();
+      } catch (e) {
+        alert("❌ 失败：" + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
