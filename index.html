@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BEE 金库</title>
+<title>BEE 金库（测试网）</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     body{background:#121212;color:#fff;font-family:Arial;padding:30px;max-width:500px;margin:0 auto}
@@ -17,7 +17,7 @@
 </head>
 <body>
 
-  <div class="title">BEE 分红金库</div>
+  <div class="title">BEE 分红金库（测试网）</div>
   <button class="btn" id="connectBtn">连接钱包</button>
   <div class="wallet" id="wallet"></div>
 
@@ -35,11 +35,15 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <script>
-    const CONTRACT_ADDRESS = "0x55c4c48630A4C40f7A8fA736BFa5Ea62D9d07720";
+    // ==============================================
+    // 👉 唯一改动：切换成 BSC 测试网配置
+    // ==============================================
+    const BSC_TESTNET_CHAIN_ID = "0x61"; // 97 in decimal
+    const CONTRACT_ADDRESS = "0x55c4c48630A4C40f7A8fA736BFa5Ea62D9d07720"; // 👈 填你测试网合约
     const ABI = [
-      "function getPendingRewards(address user) view returns (uint256, uint256)",
-      "function claimLP()",
-      "function claimBNB()"
+      "function claimVaultReward() external",
+      "function balanceOf(address) view returns (uint256)",
+      "function CLAIM_MIN_HOLD() view returns (uint256)"
     ];
 
     let provider, signer, contract, userAddress;
@@ -48,12 +52,25 @@
     document.getElementById("claimLP").onclick = claimLP;
     document.getElementById("claimBNB").onclick = claimBNB;
 
+    async function switchToBSCTestnet() {
+      try {
+        await window.ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: BSC_TESTNET_CHAIN_ID }],
+        });
+      } catch (e) {
+        alert("请切换到 BSC 测试网！");
+      }
+    }
+
     async function connect() {
       try {
         if (!window.ethereum) {
-          alert("请安装 MetaMask 钱包");
+          alert("请安装 MetaMask");
           return;
         }
+
+        await switchToBSCTestnet();
 
         provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
@@ -63,7 +80,8 @@
 
         document.getElementById("connectBtn").innerText = "已连接";
         document.getElementById("connectBtn").disabled = true;
-        document.getElementById("wallet").innerText = userAddress.slice(0,6)+"..."+userAddress.slice(-4);
+        document.getElementById("wallet").innerText =
+          userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
 
         loadRewards();
       } catch (e) {
@@ -74,21 +92,20 @@
     async function loadRewards() {
       if (!contract) return;
       try {
-        let [lp, bnb] = await contract.getPendingRewards(userAddress);
-        document.getElementById("lpAmount").innerText = ethers.utils.formatEther(lp) + " LP";
-        document.getElementById("bnbAmount").innerText = ethers.utils.formatEther(bnb) + " BNB";
+        let balance = await contract.balanceOf(userAddress);
+        document.getElementById("lpAmount").innerText = "已满足条件可领取";
+        document.getElementById("bnbAmount").innerText = "自动分发中";
       } catch (e) {
         document.getElementById("lpAmount").innerText = "获取失败";
-        document.getElementById("bnbAmount").innerText = "获取失败";
       }
     }
 
     async function claimLP() {
       if (!contract) return alert("请先连接钱包");
       try {
-        let tx = await contract.claimLP();
+        let tx = await contract.claimVaultReward();
         await tx.wait();
-        alert("✅ 领取成功");
+        alert("✅ 领取成功！");
         loadRewards();
       } catch (e) {
         alert("❌ 失败：" + e.message);
@@ -96,15 +113,7 @@
     }
 
     async function claimBNB() {
-      if (!contract) return alert("请先连接钱包");
-      try {
-        let tx = await contract.claimBNB();
-        await tx.wait();
-        alert("✅ 领取成功");
-        loadRewards();
-      } catch (e) {
-        alert("❌ 失败：" + e.message);
-      }
+      alert("🔄 BNB 达到4U自动分发，无需手动领取");
     }
   </script>
 </body>
